@@ -1,6 +1,10 @@
 
 if(NOT CMAKE_CXX_COMPILER MATCHES ".*hcc")
+  if(NOT AMDLLVM)
     set(CMAKE_CXX_COMPILER "${PROJECT_BINARY_DIR}/compiler/bin/clang++")
+  else()
+    set(CMAKE_CXX_COMPILER "${AMDLLVM}/bin/clang++")
+  endif()
 endif()
 
 add_executable(cmake-test cmake-test.cpp)

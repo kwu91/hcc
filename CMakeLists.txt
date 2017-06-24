@@ -307,97 +307,113 @@ else ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 endif ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
 
 file(MAKE_DIRECTORY ${CLANG_BIN_DIR})
-add_custom_target(clang
-  COMMAND ${CMAKE_COMMAND} ${CLANG_SRC_DIR}
-          -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-          -DLLVM_ENABLE_ASSERTIONS=${LLVM_ENABLE_ASSERTIONS}
-          -DKALMAR_VERSION_STRING=${KALMAR_VERSION_STRING}
-          -DKALMAR_VERSION_MAJOR=${KALMAR_VERSION_MAJOR}
-          -DKALMAR_VERSION_MINOR=${KALMAR_VERSION_MINOR}
-          -DKALMAR_VERSION_PATCH=${KALMAR_VERSION_PATCH}
-          -DKALMAR_SDK_COMMIT=${KALMAR_SDK_COMMIT}
-          -DKALMAR_FRONTEND_COMMIT=${KALMAR_FRONTEND_COMMIT}
-          -DKALMAR_BACKEND_COMMIT=${KALMAR_BACKEND_COMMIT}
-          -DKALMAR_BACKEND=${KALMAR_BACKEND}
-          -DAMDGPU_TARGET=${AMDGPU_TARGET}
-          -DLLVM_TARGETS_TO_BUILD="AMDGPU\;X86"
-          -DLLVM_INCLUDE_EXAMPLES=off
-  COMMAND make -j ${NUM_BUILD_THREADS} # not portable, but we need it this way
-  WORKING_DIRECTORY ${CLANG_BIN_DIR}
-)
+if(NOT AMDLLVM)
+  add_custom_target(clang
+    COMMAND ${CMAKE_COMMAND} ${CLANG_SRC_DIR}
+            -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+            -DLLVM_ENABLE_ASSERTIONS=${LLVM_ENABLE_ASSERTIONS}
+            -DKALMAR_VERSION_STRING=${KALMAR_VERSION_STRING}
+            -DKALMAR_VERSION_MAJOR=${KALMAR_VERSION_MAJOR}
+            -DKALMAR_VERSION_MINOR=${KALMAR_VERSION_MINOR}
+            -DKALMAR_VERSION_PATCH=${KALMAR_VERSION_PATCH}
+            -DKALMAR_SDK_COMMIT=${KALMAR_SDK_COMMIT}
+            -DKALMAR_FRONTEND_COMMIT=${KALMAR_FRONTEND_COMMIT}
+            -DKALMAR_BACKEND_COMMIT=${KALMAR_BACKEND_COMMIT}
+            -DKALMAR_BACKEND=${KALMAR_BACKEND}
+            -DAMDGPU_TARGET=${AMDGPU_TARGET}
+            -DLLVM_TARGETS_TO_BUILD="AMDGPU\;X86"
+            -DLLVM_INCLUDE_EXAMPLES=off
+    COMMAND make -j ${NUM_BUILD_THREADS} # not portable, but we need it this way
+    WORKING_DIRECTORY ${CLANG_BIN_DIR}
+  )
 
-# create symlink of mostly used commands in clang to bin/
-# - hcc
-# - clang++
-# - clang
+  # create symlink of mostly used commands in clang to bin/
+  # - hcc
+  # - clang++
+  # - clang
 
-add_custom_command(TARGET clang POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/hcc ${PROJECT_BINARY_DIR}/bin/hcc
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/clang++ ${PROJECT_BINARY_DIR}/bin/clang++
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/clang ${PROJECT_BINARY_DIR}/bin/clang
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/llvm-mc ${PROJECT_BINARY_DIR}/bin/llvm-mc
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/llvm-objdump ${PROJECT_BINARY_DIR}/bin/llvm-objdump
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/lld ${PROJECT_BINARY_DIR}/bin/lld
-  WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-)
+  add_custom_command(TARGET clang POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/hcc ${PROJECT_BINARY_DIR}/bin/hcc
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/clang++ ${PROJECT_BINARY_DIR}/bin/clang++
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/clang ${PROJECT_BINARY_DIR}/bin/clang
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/llvm-mc ${PROJECT_BINARY_DIR}/bin/llvm-mc
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/llvm-objdump ${PROJECT_BINARY_DIR}/bin/llvm-objdump
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ../compiler/bin/lld ${PROJECT_BINARY_DIR}/bin/lld
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+  )
 
-add_custom_command(TARGET clang POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E create_symlink ${CLANG_BIN_DIR}/lib/clang/5.0.0/lib/linux/libclang_rt.builtins-x86_64.a ${PROJECT_BINARY_DIR}/lib/libclang_rt.builtins-x86_64.a
-)
+  add_custom_command(TARGET clang POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CLANG_BIN_DIR}/lib/clang/5.0.0/lib/linux/libclang_rt.builtins-x86_64.a ${PROJECT_BINARY_DIR}/lib/libclang_rt.builtins-x86_64.a
+  )
 
-install(FILES ${PROJECT_BINARY_DIR}/bin/hcc
-              ${PROJECT_BINARY_DIR}/bin/clang++
-              ${PROJECT_BINARY_DIR}/bin/clang
-              ${PROJECT_BINARY_DIR}/bin/llvm-mc
-              ${PROJECT_BINARY_DIR}/bin/llvm-objdump
-              ${PROJECT_BINARY_DIR}/bin/lld
-        DESTINATION bin)
+else()
+  add_custom_target(clang)
+  add_custom_command(TARGET clang POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${AMDLLVM}/lib/clang/5.0.0/lib/linux/libclang_rt.builtins-x86_64.a ${PROJECT_BINARY_DIR}/lib/libclang_rt.builtins-x86_64.a
+  )
+endif()
 
-# install clang along with HCC
-# stored under compiler/
-install(DIRECTORY ${CLANG_BIN_DIR}/bin
-        DESTINATION compiler
-        COMPONENT compiler
-        PATTERN * PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-install(DIRECTORY ${CLANG_BIN_DIR}/lib
-        DESTINATION compiler
-        COMPONENT compiler
-        PATTERN CMakeFiles EXCLUDE
-        PATTERN *tmp EXCLUDE
-        PATTERN *inc EXCLUDE
-        PATTERN Makefile EXCLUDE
-        PATTERN *.a EXCLUDE
-        PATTERN lib*
-        PATTERN LLVM*
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+if(NOT AMDLLVM)
+  install(FILES ${PROJECT_BINARY_DIR}/bin/hcc
+                ${PROJECT_BINARY_DIR}/bin/clang++
+                ${PROJECT_BINARY_DIR}/bin/clang
+                ${PROJECT_BINARY_DIR}/bin/llvm-mc
+                ${PROJECT_BINARY_DIR}/bin/llvm-objdump
+                ${PROJECT_BINARY_DIR}/bin/lld
+          DESTINATION bin)
 
-# install certain LLVM libraries needed by HIP
-install(FILES  ${CLANG_BIN_DIR}/lib/libLLVMAMDGPUDesc.a
-               ${CLANG_BIN_DIR}/lib/libLLVMAMDGPUUtils.a
-               ${CLANG_BIN_DIR}/lib/libLLVMMC.a
-               ${CLANG_BIN_DIR}/lib/libLLVMCore.a
-               ${CLANG_BIN_DIR}/lib/libLLVMSupport.a
-        DESTINATION compiler/lib
-        COMPONENT compiler
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+  # install clang along with HCC
+  # stored under compiler/
+  install(DIRECTORY ${CLANG_BIN_DIR}/bin
+          DESTINATION compiler
+          COMPONENT compiler
+          PATTERN * PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-install(FILES ${CLANG_BIN_DIR}/lib/clang/5.0.0/lib/linux/libclang_rt.builtins-x86_64.a
-        DESTINATION  ${CMAKE_INSTALL_LIBDIR}
-        COMPONENT compiler)
+  install(DIRECTORY ${CLANG_BIN_DIR}/lib
+          DESTINATION compiler
+          COMPONENT compiler
+          PATTERN CMakeFiles EXCLUDE
+          PATTERN *tmp EXCLUDE
+          PATTERN *inc EXCLUDE
+          PATTERN Makefile EXCLUDE
+          PATTERN *.a EXCLUDE
+          PATTERN lib*
+          PATTERN LLVM*
+          PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-install(DIRECTORY ${CLANG_BIN_DIR}/include
-        DESTINATION compiler
-        COMPONENT compiler
-        PATTERN CMakeFiles EXCLUDE
-        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  # install certain LLVM libraries needed by HIP
+  install(FILES  ${CLANG_BIN_DIR}/lib/libLLVMAMDGPUDesc.a
+                 ${CLANG_BIN_DIR}/lib/libLLVMAMDGPUUtils.a
+                 ${CLANG_BIN_DIR}/lib/libLLVMMC.a
+                 ${CLANG_BIN_DIR}/lib/libLLVMCore.a
+                 ${CLANG_BIN_DIR}/lib/libLLVMSupport.a
+          DESTINATION compiler/lib
+          COMPONENT compiler
+          PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
-install(DIRECTORY ${CLANG_SRC_DIR}/include
-        DESTINATION compiler
-        COMPONENT compiler
-        PATTERN CMakeFiles EXCLUDE
-        PATTERN CMakeLists* EXCLUDE
-        PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+  install(FILES ${CLANG_BIN_DIR}/lib/clang/5.0.0/lib/linux/libclang_rt.builtins-x86_64.a
+          DESTINATION  ${CMAKE_INSTALL_LIBDIR}
+          COMPONENT compiler)
+
+  install(DIRECTORY ${CLANG_BIN_DIR}/include
+          DESTINATION compiler
+          COMPONENT compiler
+          PATTERN CMakeFiles EXCLUDE
+          PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+
+  install(DIRECTORY ${CLANG_SRC_DIR}/include
+          DESTINATION compiler
+          COMPONENT compiler
+          PATTERN CMakeFiles EXCLUDE
+          PATTERN CMakeLists* EXCLUDE
+          PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+
+else()
+  install(FILES ${PROJECT_BINARY_DIR}/lib/libclang_rt.builtins-x86_64.a
+          DESTINATION  ${CMAKE_INSTALL_LIBDIR}
+          COMPONENT compiler)
+endif()
 
 install( FILES ${CMAKE_CURRENT_SOURCE_DIR}/scripts/cmake/ImportedTargets.cmake
          DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/hcc )

@@ -20,7 +20,11 @@ include(ImportedTargets)
 # with debug information while other parts are not.
 
 macro(amp_target name )
-  set(CMAKE_CXX_COMPILER "${PROJECT_BINARY_DIR}/compiler/bin/clang++")
+  if(NOT AMDLLVM)
+    set(CMAKE_CXX_COMPILER "${PROJECT_BINARY_DIR}/compiler/bin/clang++")
+  else()
+    set(CMAKE_CXX_COMPILER "${AMDLLVM}/bin/clang++")
+  endif()
   add_compile_options(-std=c++11)
   target_compile_definitions(${name} PRIVATE "GTEST_HAS_TR1_TUPLE=0")
   target_include_directories(${name} SYSTEM PRIVATE ${GTEST_INC_DIR} ${LIBCXX_INC_DIR})
